@@ -11,22 +11,22 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
 
-    // POST /api/auth/login
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        AuthResponse resp = authService.loginResponse(request);
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(authService.loginResponse(request));
     }
 
-    // POST /api/auth/register (optionnel)
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody AuthRequest request) {
-        AuthResponse resp = authService.register(request.username(), request.password());
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(authService.register(request.username(), request.password()));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestBody String refreshToken) {
+        return ResponseEntity.ok(authService.refresh(refreshToken));
     }
 }

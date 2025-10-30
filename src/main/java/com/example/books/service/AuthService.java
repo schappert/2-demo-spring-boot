@@ -25,9 +25,6 @@ public class AuthService {
         this.jwtUtil = jwtUtil;
     }
 
-    /**
-     * Vérifie credentials, lance une ResponseStatusException(401) en cas d'échec.
-     */
     public void authenticate(String username, String password) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
@@ -36,35 +33,46 @@ public class AuthService {
         }
     }
 
-    /**
-     * Retourne le token JWT (chaîne) après authentification.
-     */
-    public String login(String username, String password) {
-        authenticate(username, password);
-        return jwtUtil.generateToken(username);
-    }
-
-    /**
-     * Retourne un AuthResponse (token) pour faciliter le controller.
-     */
     public AuthResponse loginResponse(AuthRequest request) {
-        String token = login(request.username(), request.password());
-        return new AuthResponse(token);
+        authenticate(request.username(), request.password());
+        String access = jwtUtil.generateAccessToken(request.username());
+        String refresh = jwtUtil.generateRefreshToken(request.username());
+
+        User user = userRepository.findByUsername(request.username()).orElseThrow();
+        user.setRefreshToken(refresh);
+        userRepository.save(user);
+
+        return new AuthResponse(access, refresh);
     }
 
-    /**
-     * Méthode d'inscription minimale (encode password, save).
-     * Tu peux ajouter validation / unique checks etc.
-     */
+    public AuthResponse refresh(String refreshToken) {
+        if (!jwtUtil.isTokenValid(refreshToken))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh Token expired");
+
+        String username = jwtUtil.extractUsername(refreshToken);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+        if (!refreshToken.equals(user.getRefreshToken()))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh Token invalidated");
+
+        String newAccess = jwtUtil.generateAccessToken(username);
+        return new AuthResponse(newAccess, refreshToken);
+    }
+
     public AuthResponse register(String username, String rawPassword) {
-        if (userRepository.findByUsername(username).isPresent()) {
+        if (userRepository.findByUsername(username).isPresent())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username already exists");
-        }
+
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(rawPassword));
+
+        String refresh = jwtUtil.generateRefreshToken(username);
+        user.setRefreshToken(refresh);
         userRepository.save(user);
-        String token = jwtUtil.generateToken(username);
-        return new AuthResponse(token);
+
+        String access = jwtUtil.generateAccessToken(username);
+        return new AuthResponse(access, refresh);
     }
 }

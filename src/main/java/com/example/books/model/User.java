@@ -21,4 +21,8 @@ public class User {
     private String password;
 
     private String role; // ROLE_USER, ROLE_ADMIN
+
+    @Column(length = 500)
+    private String refreshToken;
+
 }
